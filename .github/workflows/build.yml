@@ -56,4 +56,5 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: HelloQt-Android-APK
-        path: .buildozer/android/platform/build-arm64-v8a/dists/*/*/build/outputs/apk/*/*.apk
+        # FIX: Qt (PySide6) ka sahi Android output path
+        path: android-build/**/*.apk
