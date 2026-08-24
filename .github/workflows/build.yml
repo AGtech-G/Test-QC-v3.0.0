@@ -7,13 +7,13 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    # ⚡ FIX: Use stable Ubuntu 22.04 for Android NDK compatibility
+    runs-on: ubuntu-22.04
 
     steps:
     - name: Checkout Code
       uses: actions/checkout@v4
 
-    # FIX 1: Install Ubuntu System Dependencies required by Buildozer
     - name: Install System Dependencies
       run: |
         sudo apt-get update
@@ -35,10 +35,9 @@ jobs:
         echo "y" | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "ndk;25.2.9519653"
         echo "ANDROID_NDK_ROOT=$ANDROID_HOME/ndk/25.2.9519653" >> $GITHUB_ENV
         
-        # FIX 2: Create a shortcut (symlink) so Buildozer finds sdkmanager where it expects it!
+        # Shortcut for buildozer to find sdkmanager
         mkdir -p $ANDROID_HOME/tools/bin
         ln -s $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager $ANDROID_HOME/tools/bin/sdkmanager
-        # Accept all Android licenses to prevent build stops
         echo "y" | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
 
     - name: Install Dependencies in Virtual Environment
