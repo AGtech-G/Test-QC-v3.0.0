@@ -41,25 +41,25 @@ jobs:
       run: |
         pip install PySide6==6.8.0 buildozer cython requests
 
-    - name: Download and Perform "Wheel Surgery" (Size Reduction)
-    # Is step me hum wheel ke andar se 50-60MB ka kachra nikal denge
+    - name: Download and Perform "Wheel Surgery"
       run: |
-        # 1. Download Wheels
+        # 1. Download Original Wheels
         wget -q https://download.qt.io/official_releases/QtForPython/pyside6/PySide6-6.8.0-6.8.0-cp311-cp311-android_aarch64.whl
         wget -q https://download.qt.io/official_releases/QtForPython/shiboken6/shiboken6-6.8.0-6.8.0-cp311-cp311-android_aarch64.whl
         
         # 2. Extract PySide6 Wheel
         unzip -q PySide6-6.8.0-6.8.0-cp311-cp311-android_aarch64.whl -d ps6_temp
         
-        # 3. DELETE HEAVY UNUSED C++ LIBRARIES (The Surgery)
-        # Hum sirf Core, Gui, Qml, Quick, aur Network rakhenge. Baaki sab uda denge.
+        # 3. DELETE HEAVY UNUSED C++ LIBRARIES
+        # In files ko hatane se functionality nahi tootegi, sirf extra features hatenge
         cd ps6_temp/PySide6/Qt/lib/
         rm -v libQt6Widgets.so libQt6Sql.so libQt6Xml.so libQt6Pdf.so libQt6OpenGL.so libQt6OpenGLWidgets.so libQt6PrintSupport.so libQt6Test.so libQt6Concurrent.so || true
         cd ../../../..
         
-        # 4. Repack the Slim Wheel
+        # 4. Repack the Wheel with the SAME ORIGINAL NAME (Crucial for the tool)
+        rm PySide6-6.8.0-6.8.0-cp311-cp311-android_aarch64.whl
         cd ps6_temp
-        zip -rq ../PySide6-Slim.whl .
+        zip -rq ../PySide6-6.8.0-6.8.0-cp311-cp311-android_aarch64.whl .
         cd ..
         
         # 5. Cleanup
@@ -67,11 +67,11 @@ jobs:
 
     - name: Deploy APK (PySide6 to Android)
       run: |
-        # Ab hum 'Slim Wheel' ka use kar rahe hain
+        # Ab tool ko original naam wali 'Slim' wheel milegi
         pyside6-android-deploy \
           -f \
           --name="HelloQt" \
-          --wheel-pyside=PySide6-Slim.whl \
+          --wheel-pyside=PySide6-6.8.0-6.8.0-cp311-cp311-android_aarch64.whl \
           --wheel-shiboken=shiboken6-6.8.0-6.8.0-cp311-cp311-android_aarch64.whl \
           --ndk-path=$ANDROID_NDK_ROOT \
           --sdk-path=$ANDROID_HOME
