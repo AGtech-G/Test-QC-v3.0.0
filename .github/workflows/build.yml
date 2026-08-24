@@ -41,20 +41,22 @@ jobs:
         wget -q https://download.qt.io/official_releases/QtForPython/pyside6/PySide6-6.8.0-6.8.0-cp311-cp311-android_aarch64.whl
         wget -q https://download.qt.io/official_releases/QtForPython/shiboken6/shiboken6-6.8.0-6.8.0-cp311-cp311-android_aarch64.whl
 
-    # FIX: Deployer ko venv ke andar run kar rahe hain taaki wo prompt na maange
     - name: Deploy APK (PySide6 to Android)
       run: |
         source venv/bin/activate
+        # FIX: Added app-local-path and main-file back!
         pyside6-android-deploy \
-          --name=HelloQt \
+          --name="HelloQt" \
           --wheel-pyside=PySide6-6.8.0-6.8.0-cp311-cp311-android_aarch64.whl \
           --wheel-shiboken=shiboken6-6.8.0-6.8.0-cp311-cp311-android_aarch64.whl \
           --ndk-path=$ANDROID_NDK_ROOT \
-          --sdk-path=$ANDROID_HOME
+          --sdk-path=$ANDROID_HOME \
+          --app-local-path=. \
+          --main-file=main.py
 
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
         name: HelloQt-Android-APK
-        # FIX: Qt (PySide6) ka sahi Android output path
-        path: android-build/**/*.apk
+        # FIX: The Ultimate Wildcard - Server par jahan bhi APK hoga ye utha lega!
+        path: '**/*.apk'
