@@ -18,54 +18,56 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y git zip unzip openjdk-17-jdk python3-pip autoconf libtool pkg-config zlib1g-dev cmake libffi-dev libssl-dev
 
+    - name: Setup Java (JDK 17)
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+
     - name: Setup Python
       uses: actions/setup-python@v5
       with:
         python-version: '3.11'
 
-    - name: Install Android NDK and Set Strip Path
+    - name: Install Android NDK & SDK Fix
       run: |
         echo "y" | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "ndk;25.2.9519653"
         echo "ANDROID_NDK_ROOT=$ANDROID_HOME/ndk/25.2.9519653" >> $GITHUB_ENV
-        echo "STRIP_TOOL=$ANDROID_HOME/ndk/25.2.9519653/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip" >> $GITHUB_ENV
         mkdir -p $ANDROID_HOME/tools/bin
         ln -s $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager $ANDROID_HOME/tools/bin/sdkmanager
+        # Accept Licenses (Crucial to prevent Gradle Fail)
         echo "y" | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
 
     - name: Install PySide6 Tools
       run: |
         pip install PySide6==6.8.0 buildozer cython requests
 
-    - name: Surgery PySide6 Wheel
+    - name: Safe Surgery PySide6 Wheel
       run: |
         wget -q https://download.qt.io/official_releases/QtForPython/pyside6/PySide6-6.8.0-6.8.0-cp311-cp311-android_aarch64.whl
         unzip -q PySide6-6.8.0-6.8.0-cp311-cp311-android_aarch64.whl -d ps6_temp
-        cd ps6_temp/PySide6/Qt/
-        cd qml/
-        find . -maxdepth 1 -type d ! -name '.' ! -name 'QtQuick' ! -name 'Qt' ! -name 'QtCore' ! -name 'QtQml' ! -name 'QtGraphicalEffects' -exec rm -rf {} + || true
-        cd ..
-        rm -rf translations/ plugins/ designer/ doc/ examples/ || true
-        cd lib/
-        rm -rf libQt6Multimedia* libQt6WebEngine* libQt63D* libQt6Bluetooth* libQt6Positioning* libQt6Sensors* libQt6Nfc* libQt6Pdf* libQt6Charts* libQt6DataVisualization* libQt6Sql* libQt6Xml* libQt6Svg* libQt6Test* || true
-        find . -name "*.so" -exec $STRIP_TOOL --strip-unneeded {} \;
+        
+        # 1. DELETE NON-BINARY CLUTTER (100% Safe to delete)
+        rm -rf ps6_temp/PySide6/Qt/translations
+        rm -rf ps6_temp/PySide6/Qt/doc
+        rm -rf ps6_temp/PySide6/Qt/examples
+        
+        # 2. DELETE ONLY THE LARGEST UNUSED MODULES
+        # WebEngine aur Multimedia akele 80MB+ hote hain.
+        cd ps6_temp/PySide6/Qt/lib/
+        rm -rf libQt6WebEngine* libQt6Multimedia* libQt63D* libQt6Charts* libQt6DataVisualization* || true
         cd ../../../..
+        
+        # 3. REPACK
         rm PySide6-6.8.0-6.8.0-cp311-cp311-android_aarch64.whl
         cd ps6_temp && zip -rq ../PySide6-6.8.0-6.8.0-cp311-cp311-android_aarch64.whl . && cd ..
         rm -rf ps6_temp
 
-    - name: Surgery Shiboken Wheel
+    - name: Deploy APK (PySide6 to Android)
       run: |
+        # Download Shiboken fresh (No surgery on shiboken to ensure stability)
         wget -q https://download.qt.io/official_releases/QtForPython/shiboken6/shiboken6-6.8.0-6.8.0-cp311-cp311-android_aarch64.whl
-        unzip -q shiboken6-6.8.0-6.8.0-cp311-cp311-android_aarch64.whl -d sh_temp
-        cd sh_temp
-        find . -name "*.so" -exec $STRIP_TOOL --strip-unneeded {} \;
-        cd ..
-        rm shiboken6-6.8.0-6.8.0-cp311-cp311-android_aarch64.whl
-        cd sh_temp && zip -rq ../shiboken6-6.8.0-6.8.0-cp311-cp311-android_aarch64.whl . && cd ..
-        rm -rf sh_temp
-
-    - name: Deploy APK
-      run: |
+        
         pyside6-android-deploy \
           -f \
           --name="QuickCode" \
@@ -78,11 +80,11 @@ jobs:
       if: always()
       run: |
         mkdir -p release
-        find . -name "*.apk" -exec cp {} release/ \;
+        find . -name "*.apk" -copy {} release/ || find . -name "*.apk" -exec cp {} release/ \;
         ls -lh release/
 
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: QuickCode-Optimized-APK
+        name: QuickCode-Build
         path: release/*.apk
