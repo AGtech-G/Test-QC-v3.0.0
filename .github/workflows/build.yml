@@ -1,4 +1,4 @@
-name: Build PySide6 Android APK (Ultra Slim)
+name: Build PySide6 Android APK (Ultra Slim Final)
 
 on:
   push:
@@ -33,40 +33,51 @@ jobs:
       run: |
         pip install PySide6==6.8.0 buildozer cython requests
 
-    - name: ✂️ EXTREME WHEEL SURGERY
+    - name: ✂️ EXTREME SURGERY: PYSIDE6 WHEEL
       run: |
+        # 1. Download PySide6 only first
         wget -q https://download.qt.io/official_releases/QtForPython/pyside6/PySide6-6.8.0-6.8.0-cp311-cp311-android_aarch64.whl
-        wget -q https://download.qt.io/official_releases/QtForPython/shiboken6/shiboken6-6.8.0-6.8.0-cp311-cp311-android_aarch64.whl
         
+        # 2. Extract and Surgery
         unzip -q PySide6-6.8.0-6.8.0-cp311-cp311-android_aarch64.whl -d ps6_temp
         cd ps6_temp/PySide6/Qt/
         
-        # 1. DELETE UNUSED QML MODULES (This is where the 20-30MB is hidden!)
-        # Hum sirf wahi modules rakhenge jo basic UI ke liye zaroori hain.
+        # DELETE UNUSED QML (Saves ~30MB)
         cd qml/
-        find . -maxdepth 1 -type d ! -name '.' ! -name 'QtQuick' ! -name 'Qt' ! -name 'QtCore' ! -name 'QtQml' -exec rm -rf {} + || true
+        find . -maxdepth 1 -type d ! -name '.' ! -name 'QtQuick' ! -name 'Qt' ! -name 'QtCore' ! -name 'QtQml' ! -name 'QtGraphicalEffects' -exec rm -rf {} + || true
         cd ..
         
-        # 2. DELETE NON-ESSENTIAL PLUGINS & TRANSLATIONS
-        rm -rf translations/ plugins/ designer/ || true
+        # DELETE PLUGINS & TRANSLATIONS
+        rm -rf translations/ plugins/ designer/ doc/ examples/ || true
         
-        # 3. DELETE REMAINING HEAVY LIBRARIES
+        # DELETE HEAVY LIBS
         cd lib/
-        rm -rf libQt6Multimedia* libQt6WebEngine* libQt63D* libQt6Bluetooth* libQt6Positioning* libQt6Sensors* libQt6Nfc* libQt6Pdf* libQt6Charts* libQt6DataVisualization* libQt6Sql* libQt6Xml* libQt6Svg* || true
+        rm -rf libQt6Multimedia* libQt6WebEngine* libQt63D* libQt6Bluetooth* libQt6Positioning* libQt6Sensors* libQt6Nfc* libQt6Pdf* libQt6Charts* libQt6DataVisualization* libQt6Sql* libQt6Xml* libQt6Svg* libQt6Test* || true
         
-        # 4. FINAL STRIP (Binary Compression)
+        # STRIP ALL BINARIES
         find . -name "*.so" -exec $STRIP_TOOL --strip-unneeded {} \;
         cd ../../../..
         
-        # 5. Repack
-        rm *.whl
+        # 3. Repack and clean
+        rm PySide6-6.8.0-6.8.0-cp311-cp311-android_aarch64.whl
         cd ps6_temp && zip -rq ../PySide6-6.8.0-6.8.0-cp311-cp311-android_aarch64.whl . && cd ..
+        rm -rf ps6_temp
+
+    - name: ✂️ EXTREME SURGERY: SHIBOKEN WHEEL
+      run: |
+        # 1. Download Shiboken
+        wget -q https://download.qt.io/official_releases/QtForPython/shiboken6/shiboken6-6.8.0-6.8.0-cp311-cp311-android_aarch64.whl
         
+        # 2. Extract and Strip
         unzip -q shiboken6-6.8.0-6.8.0-cp311-cp311-android_aarch64.whl -d sh_temp
-        cd sh_temp && find . -name "*.so" -exec $STRIP_TOOL --strip-unneeded {} \; && cd ..
-        cd sh_temp && zip -rq ../shiboken6-6.8.0-6.8.0-cp311-cp311-android_aarch64.whl . && cd ..
+        cd sh_temp
+        find . -name "*.so" -exec $STRIP_TOOL --strip-unneeded {} \;
+        cd ..
         
-        rm -rf ps6_temp sh_temp
+        # 3. Repack and clean
+        rm shiboken6-6.8.0-6.8.0-cp311-cp311-android_aarch64.whl
+        cd sh_temp && zip -rq ../shiboken6-6.8.0-6.8.0-cp311-cp311-android_aarch64.whl . && cd ..
+        rm -rf sh_temp
 
     - name: Deploy APK (PySide6 to Android)
       run: |
@@ -88,5 +99,5 @@ jobs:
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: QuickCode-Ultra-Slim
+        name: QuickCode-Final-Optimized
         path: release/*.apk
