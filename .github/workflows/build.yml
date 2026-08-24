@@ -1,4 +1,4 @@
-name: Build PySide6 Android APK (Ultra Optimized)
+name: Build PySide6 Android APK (Nuclear Optimized)
 
 on:
   push:
@@ -33,7 +33,6 @@ jobs:
       run: |
         echo "y" | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "ndk;25.2.9519653"
         echo "ANDROID_NDK_ROOT=$ANDROID_HOME/ndk/25.2.9519653" >> $GITHUB_ENV
-        # NDK ka strip tool path save kar rahe hain
         echo "STRIP_TOOL=$ANDROID_HOME/ndk/25.2.9519653/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip" >> $GITHUB_ENV
         mkdir -p $ANDROID_HOME/tools/bin
         ln -s $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager $ANDROID_HOME/tools/bin/sdkmanager
@@ -43,43 +42,50 @@ jobs:
       run: |
         pip install PySide6==6.8.0 buildozer cython requests
 
-    - name: 🛠️ PERFORM WHEEL SURGERY & BINARY STRIPPING
+    - name: ☢️ NUCLEAR WHEEL SURGERY (Deep Clean)
       run: |
         # 1. Download Wheels
         wget -q https://download.qt.io/official_releases/QtForPython/pyside6/PySide6-6.8.0-6.8.0-cp311-cp311-android_aarch64.whl
         wget -q https://download.qt.io/official_releases/QtForPython/shiboken6/shiboken6-6.8.0-6.8.0-cp311-cp311-android_aarch64.whl
         
-        # 2. PySide6 Wheel Surgery
+        # 2. Extract PySide6
         unzip -q PySide6-6.8.0-6.8.0-cp311-cp311-android_aarch64.whl -d ps6_temp
-        cd ps6_temp/PySide6/Qt/lib/
+        cd ps6_temp/PySide6/Qt/
         
-        # DELETE ALL MASSIVE UNUSED LIBRARIES (IDE me inka koi kaam nahi)
-        rm -rf libQt6Multimedia* libQt6WebEngine* libQt63D* libQt6Bluetooth* libQt6Positioning* libQt6Sensors* libQt6Nfc* libQt6Pdf* libQt6SpatialAudio* libQt6VirtualKeyboard* libQt6Charts* libQt6DataVisualization* || true
+        # --- NUCLEAR CLEANING ---
+        # 2.1 Delete all language translations (Saves ~15MB)
+        rm -rf translations/
         
-        # 🔥 THE MAGIC: Strip all remaining .so files (Removes 50% size instantly)
+        # 2.2 Delete useless plugins (Saves ~10MB)
+        rm -rf plugins/position plugins/sqldrivers plugins/sensors plugins/multimedia plugins/texttospeech plugins/canvas || true
+        
+        # 2.3 Delete heavy unused C++ libs
+        cd lib/
+        rm -rf libQt6Multimedia* libQt6WebEngine* libQt63D* libQt6Bluetooth* libQt6Positioning* libQt6Sensors* libQt6Nfc* libQt6Pdf* libQt6SpatialAudio* libQt6VirtualKeyboard* libQt6Charts* libQt6DataVisualization* libQt6Sql* libQt6Xml* || true
+        
+        # 2.4 STRIP ALL REMAINING BINARIES (Max Compacting)
         find . -name "*.so" -exec $STRIP_TOOL --strip-unneeded {} \;
-        
         cd ../../../..
         
-        # 3. Shiboken Wheel Surgery (Strip its binaries too)
+        # 3. Strip Shiboken
         unzip -q shiboken6-6.8.0-6.8.0-cp311-cp311-android_aarch64.whl -d sh_temp
         cd sh_temp
         find . -name "*.so" -exec $STRIP_TOOL --strip-unneeded {} \;
         cd ..
         
-        # 4. Repack Wheels with original names
+        # 4. Repack Wheels
         rm *.whl
         cd ps6_temp && zip -rq ../PySide6-6.8.0-6.8.0-cp311-cp311-android_aarch64.whl . && cd ..
         cd sh_temp && zip -rq ../shiboken6-6.8.0-6.8.0-cp311-cp311-android_aarch64.whl . && cd ..
         
-        # 5. Cleanup
+        # 5. Final Cleanup
         rm -rf ps6_temp sh_temp venv .git .github requirements.txt
 
     - name: Deploy APK (PySide6 to Android)
       run: |
         pyside6-android-deploy \
           -f \
-          --name="QuickCodeTest" \
+          --name="QuickCode" \
           --wheel-pyside=PySide6-6.8.0-6.8.0-cp311-cp311-android_aarch64.whl \
           --wheel-shiboken=shiboken6-6.8.0-6.8.0-cp311-cp311-android_aarch64.whl \
           --ndk-path=$ANDROID_NDK_ROOT \
@@ -90,10 +96,10 @@ jobs:
       run: |
         mkdir -p release
         find . -name "*.apk" -exec cp {} release/ \;
-        ls -lh release/ # Shows human readable size in logs
+        ls -lh release/
 
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: QuickCode-Ultra-Optimized
+        name: QuickCode-Nuclear-Optimized
         path: release/*.apk
