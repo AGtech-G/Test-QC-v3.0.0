@@ -55,14 +55,17 @@ jobs:
 
     - name: Deploy APK (PySide6 to Android)
       run: |
-        # Broken flag removed to fix TypeError
+        # 1. Mode ko 'release' kiya (Debug symbols hatane ke liye)
+        # 2. --extra-modules me sirf wahi rakha jo zaroori hai
         pyside6-android-deploy \
           -f \
           --name="HelloQt" \
+          --mode=release \
           --wheel-pyside=PySide6-6.8.0-6.8.0-cp311-cp311-android_aarch64.whl \
           --wheel-shiboken=shiboken6-6.8.0-6.8.0-cp311-cp311-android_aarch64.whl \
           --ndk-path=$ANDROID_NDK_ROOT \
-          --sdk-path=$ANDROID_HOME
+          --sdk-path=$ANDROID_HOME \
+          --extra-modules=Core,Gui,Quick,Qml,Network,Widgets
 
     - name: Prepare APK for Upload
       if: always()
