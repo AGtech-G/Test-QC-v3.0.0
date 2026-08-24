@@ -29,8 +29,7 @@ jobs:
         echo "y" | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "ndk;25.2.9519653"
         echo "ANDROID_NDK_ROOT=$ANDROID_HOME/ndk/25.2.9519653" >> $GITHUB_ENV
 
-    # FIX: Yahan humne Virtual Environment (venv) bana diya hai
-    - name: Install Dependencies
+    - name: Install Dependencies in Virtual Environment
       run: |
         python -m venv venv
         source venv/bin/activate
@@ -44,19 +43,16 @@ jobs:
     - name: Deploy APK (PySide6 to Android)
       run: |
         source venv/bin/activate
-        # FIX: Added app-local-path and main-file back!
         pyside6-android-deploy \
+          -f \
           --name="HelloQt" \
           --wheel-pyside=PySide6-6.8.0-6.8.0-cp311-cp311-android_aarch64.whl \
           --wheel-shiboken=shiboken6-6.8.0-6.8.0-cp311-cp311-android_aarch64.whl \
           --ndk-path=$ANDROID_NDK_ROOT \
-          --sdk-path=$ANDROID_HOME \
-          --app-local-path=. \
-          --main-file=main.py
+          --sdk-path=$ANDROID_HOME
 
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
         name: HelloQt-Android-APK
-        # FIX: The Ultimate Wildcard - Server par jahan bhi APK hoga ye utha lega!
         path: '**/*.apk'
