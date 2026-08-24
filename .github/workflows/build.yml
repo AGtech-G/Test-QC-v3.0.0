@@ -1,4 +1,4 @@
-name: Build PySide6 Android APK
+name: Build PySide6 Android APK (Optimized)
 
 on:
   push:
@@ -39,32 +39,42 @@ jobs:
 
     - name: Install PySide6 Tools
       run: |
-        # Global install taaki venv project ke andar na bane
         pip install PySide6==6.8.0 buildozer cython requests
 
-    - name: Download Official Qt Android Wheels
+    - name: Download and Perform "Wheel Surgery" (Size Reduction)
+    # Is step me hum wheel ke andar se 50-60MB ka kachra nikal denge
       run: |
+        # 1. Download Wheels
         wget -q https://download.qt.io/official_releases/QtForPython/pyside6/PySide6-6.8.0-6.8.0-cp311-cp311-android_aarch64.whl
         wget -q https://download.qt.io/official_releases/QtForPython/shiboken6/shiboken6-6.8.0-6.8.0-cp311-cp311-android_aarch64.whl
-
-    # 🔥 FIX: Manually delete extra folders to bypass the buggy --extra-ignore-dirs flag
-    - name: Cleanup Workspace for Build
-      run: |
-        rm -rf venv .git .github requirements.txt
-        ls -la # Verifying only main.py and Main.qml remain
+        
+        # 2. Extract PySide6 Wheel
+        unzip -q PySide6-6.8.0-6.8.0-cp311-cp311-android_aarch64.whl -d ps6_temp
+        
+        # 3. DELETE HEAVY UNUSED C++ LIBRARIES (The Surgery)
+        # Hum sirf Core, Gui, Qml, Quick, aur Network rakhenge. Baaki sab uda denge.
+        cd ps6_temp/PySide6/Qt/lib/
+        rm -v libQt6Widgets.so libQt6Sql.so libQt6Xml.so libQt6Pdf.so libQt6OpenGL.so libQt6OpenGLWidgets.so libQt6PrintSupport.so libQt6Test.so libQt6Concurrent.so || true
+        cd ../../../..
+        
+        # 4. Repack the Slim Wheel
+        cd ps6_temp
+        zip -rq ../PySide6-Slim.whl .
+        cd ..
+        
+        # 5. Cleanup
+        rm -rf ps6_temp venv .git .github requirements.txt
 
     - name: Deploy APK (PySide6 to Android)
       run: |
-        # Broken flag --mode=release hata diya hai.
-        # --extra-modules use kar rahe hain jo valid hai (Line 44 in log)
+        # Ab hum 'Slim Wheel' ka use kar rahe hain
         pyside6-android-deploy \
           -f \
           --name="HelloQt" \
-          --wheel-pyside=PySide6-6.8.0-6.8.0-cp311-cp311-android_aarch64.whl \
+          --wheel-pyside=PySide6-Slim.whl \
           --wheel-shiboken=shiboken6-6.8.0-6.8.0-cp311-cp311-android_aarch64.whl \
           --ndk-path=$ANDROID_NDK_ROOT \
-          --sdk-path=$ANDROID_HOME \
-          --extra-modules=Core,Gui,Quick,Qml,Network
+          --sdk-path=$ANDROID_HOME
 
     - name: Prepare APK for Upload
       if: always()
@@ -76,5 +86,5 @@ jobs:
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: HelloQt-Android-APK
+        name: HelloQt-Optimized-APK
         path: release/*.apk
