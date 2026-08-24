@@ -29,18 +29,22 @@ jobs:
         echo "y" | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "ndk;25.2.9519653"
         echo "ANDROID_NDK_ROOT=$ANDROID_HOME/ndk/25.2.9519653" >> $GITHUB_ENV
 
+    # FIX: Yahan humne Virtual Environment (venv) bana diya hai
     - name: Install Dependencies
       run: |
+        python -m venv venv
+        source venv/bin/activate
         pip install -r requirements.txt
 
     - name: Download Official Qt Android Wheels
       run: |
-        # Qt ke official server se Android aarch64 wheels download karna
         wget -q https://download.qt.io/official_releases/QtForPython/pyside6/PySide6-6.8.0-6.8.0-cp311-cp311-android_aarch64.whl
         wget -q https://download.qt.io/official_releases/QtForPython/shiboken6/shiboken6-6.8.0-6.8.0-cp311-cp311-android_aarch64.whl
 
+    # FIX: Deployer ko venv ke andar run kar rahe hain taaki wo prompt na maange
     - name: Deploy APK (PySide6 to Android)
       run: |
+        source venv/bin/activate
         pyside6-android-deploy \
           --name=HelloQt \
           --wheel-pyside=PySide6-6.8.0-6.8.0-cp311-cp311-android_aarch64.whl \
