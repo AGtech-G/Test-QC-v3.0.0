@@ -1,4 +1,4 @@
-name: Build PySide6 Android APK (Ultra Slim Final)
+name: Build PySide6 Android APK
 
 on:
   push:
@@ -23,63 +23,48 @@ jobs:
       with:
         python-version: '3.11'
 
-    - name: Install Android NDK & Set Strip Path
+    - name: Install Android NDK and Set Strip Path
       run: |
         echo "y" | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "ndk;25.2.9519653"
         echo "ANDROID_NDK_ROOT=$ANDROID_HOME/ndk/25.2.9519653" >> $GITHUB_ENV
         echo "STRIP_TOOL=$ANDROID_HOME/ndk/25.2.9519653/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip" >> $GITHUB_ENV
+        mkdir -p $ANDROID_HOME/tools/bin
+        ln -s $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager $ANDROID_HOME/tools/bin/sdkmanager
+        echo "y" | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
 
     - name: Install PySide6 Tools
       run: |
         pip install PySide6==6.8.0 buildozer cython requests
 
-    - name: ✂️ EXTREME SURGERY: PYSIDE6 WHEEL
+    - name: Surgery PySide6 Wheel
       run: |
-        # 1. Download PySide6 only first
         wget -q https://download.qt.io/official_releases/QtForPython/pyside6/PySide6-6.8.0-6.8.0-cp311-cp311-android_aarch64.whl
-        
-        # 2. Extract and Surgery
         unzip -q PySide6-6.8.0-6.8.0-cp311-cp311-android_aarch64.whl -d ps6_temp
         cd ps6_temp/PySide6/Qt/
-        
-        # DELETE UNUSED QML (Saves ~30MB)
         cd qml/
         find . -maxdepth 1 -type d ! -name '.' ! -name 'QtQuick' ! -name 'Qt' ! -name 'QtCore' ! -name 'QtQml' ! -name 'QtGraphicalEffects' -exec rm -rf {} + || true
         cd ..
-        
-        # DELETE PLUGINS & TRANSLATIONS
         rm -rf translations/ plugins/ designer/ doc/ examples/ || true
-        
-        # DELETE HEAVY LIBS
         cd lib/
         rm -rf libQt6Multimedia* libQt6WebEngine* libQt63D* libQt6Bluetooth* libQt6Positioning* libQt6Sensors* libQt6Nfc* libQt6Pdf* libQt6Charts* libQt6DataVisualization* libQt6Sql* libQt6Xml* libQt6Svg* libQt6Test* || true
-        
-        # STRIP ALL BINARIES
         find . -name "*.so" -exec $STRIP_TOOL --strip-unneeded {} \;
         cd ../../../..
-        
-        # 3. Repack and clean
         rm PySide6-6.8.0-6.8.0-cp311-cp311-android_aarch64.whl
         cd ps6_temp && zip -rq ../PySide6-6.8.0-6.8.0-cp311-cp311-android_aarch64.whl . && cd ..
         rm -rf ps6_temp
 
-    - name: ✂️ EXTREME SURGERY: SHIBOKEN WHEEL
+    - name: Surgery Shiboken Wheel
       run: |
-        # 1. Download Shiboken
         wget -q https://download.qt.io/official_releases/QtForPython/shiboken6/shiboken6-6.8.0-6.8.0-cp311-cp311-android_aarch64.whl
-        
-        # 2. Extract and Strip
         unzip -q shiboken6-6.8.0-6.8.0-cp311-cp311-android_aarch64.whl -d sh_temp
         cd sh_temp
         find . -name "*.so" -exec $STRIP_TOOL --strip-unneeded {} \;
         cd ..
-        
-        # 3. Repack and clean
         rm shiboken6-6.8.0-6.8.0-cp311-cp311-android_aarch64.whl
         cd sh_temp && zip -rq ../shiboken6-6.8.0-6.8.0-cp311-cp311-android_aarch64.whl . && cd ..
         rm -rf sh_temp
 
-    - name: Deploy APK (PySide6 to Android)
+    - name: Deploy APK
       run: |
         pyside6-android-deploy \
           -f \
@@ -99,5 +84,5 @@ jobs:
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: QuickCode-Final-Optimized
+        name: QuickCode-Optimized-APK
         path: release/*.apk
