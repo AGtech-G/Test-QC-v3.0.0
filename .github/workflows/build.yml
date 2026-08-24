@@ -7,7 +7,6 @@ on:
 
 jobs:
   build:
-    # ⚡ FIX: Use stable Ubuntu 22.04 for Android NDK compatibility
     runs-on: ubuntu-22.04
 
     steps:
@@ -35,7 +34,6 @@ jobs:
         echo "y" | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "ndk;25.2.9519653"
         echo "ANDROID_NDK_ROOT=$ANDROID_HOME/ndk/25.2.9519653" >> $GITHUB_ENV
         
-        # Shortcut for buildozer to find sdkmanager
         mkdir -p $ANDROID_HOME/tools/bin
         ln -s $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager $ANDROID_HOME/tools/bin/sdkmanager
         echo "y" | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
@@ -62,8 +60,15 @@ jobs:
           --ndk-path=$ANDROID_NDK_ROOT \
           --sdk-path=$ANDROID_HOME
 
+    - name: Prepare APK for Upload
+      run: |
+        mkdir -p release
+        find . -name "*.apk" -exec cp {} release/ \;
+        ls -la release/
+
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
         name: HelloQt-Android-APK
-        path: '**/*.apk'
+        path: release/*.apk
+        include-hidden-files: true
