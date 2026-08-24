@@ -1,4 +1,4 @@
-name: Build PySide6 Android APK (Optimized)
+name: Build PySide6 Android APK (Ultra Optimized)
 
 on:
   push:
@@ -29,10 +29,12 @@ jobs:
       with:
         python-version: '3.11'
 
-    - name: Install Android NDK & Fix SDKManager Path
+    - name: Install Android NDK & Set Strip Path
       run: |
         echo "y" | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "ndk;25.2.9519653"
         echo "ANDROID_NDK_ROOT=$ANDROID_HOME/ndk/25.2.9519653" >> $GITHUB_ENV
+        # NDK ka strip tool path save kar rahe hain
+        echo "STRIP_TOOL=$ANDROID_HOME/ndk/25.2.9519653/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip" >> $GITHUB_ENV
         mkdir -p $ANDROID_HOME/tools/bin
         ln -s $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager $ANDROID_HOME/tools/bin/sdkmanager
         echo "y" | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
@@ -41,36 +43,43 @@ jobs:
       run: |
         pip install PySide6==6.8.0 buildozer cython requests
 
-    - name: Download and Perform "Wheel Surgery"
+    - name: 🛠️ PERFORM WHEEL SURGERY & BINARY STRIPPING
       run: |
-        # 1. Download Original Wheels
+        # 1. Download Wheels
         wget -q https://download.qt.io/official_releases/QtForPython/pyside6/PySide6-6.8.0-6.8.0-cp311-cp311-android_aarch64.whl
         wget -q https://download.qt.io/official_releases/QtForPython/shiboken6/shiboken6-6.8.0-6.8.0-cp311-cp311-android_aarch64.whl
         
-        # 2. Extract PySide6 Wheel
+        # 2. PySide6 Wheel Surgery
         unzip -q PySide6-6.8.0-6.8.0-cp311-cp311-android_aarch64.whl -d ps6_temp
-        
-        # 3. DELETE HEAVY UNUSED C++ LIBRARIES
-        # In files ko hatane se functionality nahi tootegi, sirf extra features hatenge
         cd ps6_temp/PySide6/Qt/lib/
-        rm -v libQt6Widgets.so libQt6Sql.so libQt6Xml.so libQt6Pdf.so libQt6OpenGL.so libQt6OpenGLWidgets.so libQt6PrintSupport.so libQt6Test.so libQt6Concurrent.so || true
+        
+        # DELETE ALL MASSIVE UNUSED LIBRARIES (IDE me inka koi kaam nahi)
+        rm -rf libQt6Multimedia* libQt6WebEngine* libQt63D* libQt6Bluetooth* libQt6Positioning* libQt6Sensors* libQt6Nfc* libQt6Pdf* libQt6SpatialAudio* libQt6VirtualKeyboard* libQt6Charts* libQt6DataVisualization* || true
+        
+        # 🔥 THE MAGIC: Strip all remaining .so files (Removes 50% size instantly)
+        find . -name "*.so" -exec $STRIP_TOOL --strip-unneeded {} \;
+        
         cd ../../../..
         
-        # 4. Repack the Wheel with the SAME ORIGINAL NAME (Crucial for the tool)
-        rm PySide6-6.8.0-6.8.0-cp311-cp311-android_aarch64.whl
-        cd ps6_temp
-        zip -rq ../PySide6-6.8.0-6.8.0-cp311-cp311-android_aarch64.whl .
+        # 3. Shiboken Wheel Surgery (Strip its binaries too)
+        unzip -q shiboken6-6.8.0-6.8.0-cp311-cp311-android_aarch64.whl -d sh_temp
+        cd sh_temp
+        find . -name "*.so" -exec $STRIP_TOOL --strip-unneeded {} \;
         cd ..
         
+        # 4. Repack Wheels with original names
+        rm *.whl
+        cd ps6_temp && zip -rq ../PySide6-6.8.0-6.8.0-cp311-cp311-android_aarch64.whl . && cd ..
+        cd sh_temp && zip -rq ../shiboken6-6.8.0-6.8.0-cp311-cp311-android_aarch64.whl . && cd ..
+        
         # 5. Cleanup
-        rm -rf ps6_temp venv .git .github requirements.txt
+        rm -rf ps6_temp sh_temp venv .git .github requirements.txt
 
     - name: Deploy APK (PySide6 to Android)
       run: |
-        # Ab tool ko original naam wali 'Slim' wheel milegi
         pyside6-android-deploy \
           -f \
-          --name="HelloQt" \
+          --name="QuickCodeTest" \
           --wheel-pyside=PySide6-6.8.0-6.8.0-cp311-cp311-android_aarch64.whl \
           --wheel-shiboken=shiboken6-6.8.0-6.8.0-cp311-cp311-android_aarch64.whl \
           --ndk-path=$ANDROID_NDK_ROOT \
@@ -81,10 +90,10 @@ jobs:
       run: |
         mkdir -p release
         find . -name "*.apk" -exec cp {} release/ \;
-        ls -la release/
+        ls -lh release/ # Shows human readable size in logs
 
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: HelloQt-Optimized-APK
+        name: QuickCode-Ultra-Optimized
         path: release/*.apk
